@@ -18,7 +18,7 @@ public class OrderProcessorFunction
 
         var cosmosClient = new CosmosClient(
             Environment.GetEnvironmentVariable("Cosmos__ConnectionString"));
-        _cosmosContainer = cosmosClient.GetContainer("OrderDb", "Orders");
+        _cosmosContainer = cosmosClient.GetContainer("OrderProcessingDb", "Orders");
     }
 
     [Function("ProcessOrder")]

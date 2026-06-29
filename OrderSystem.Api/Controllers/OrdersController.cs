@@ -32,7 +32,7 @@ public class OrdersController : ControllerBase
         // Cosmos DB
         var cosmosConn = config["Cosmos:ConnectionString"] ?? throw new InvalidOperationException("Cosmos:ConnectionString mancante");
         var cosmosClient = new CosmosClient(cosmosConn);
-        _cosmosContainer = cosmosClient.GetContainer("OrderDb", "Orders");
+        _cosmosContainer = cosmosClient.GetContainer("OrderProcessingDb", "Orders");
     }
 
     // POST api/orders
