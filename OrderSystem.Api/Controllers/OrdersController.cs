@@ -31,7 +31,14 @@ public class OrdersController : ControllerBase
 
         // Cosmos DB (auto-create database e container se non esistono)
         var cosmosConn = config["Cosmos:ConnectionString"] ?? throw new InvalidOperationException("Cosmos:ConnectionString mancante");
-        var cosmosClient = new CosmosClient(cosmosConn);
+        var cosmosOptions = new CosmosClientOptions()
+        {
+            SerializerOptions = new CosmosSerializationOptions
+            {
+                PropertyNamingPolicy = CosmosPropertyNamingPolicy.CamelCase
+            }
+        };
+        var cosmosClient = new CosmosClient(cosmosConn, cosmosOptions);
         var database = cosmosClient.CreateDatabaseIfNotExistsAsync("OrderProcessingDb").Result;
         _cosmosContainer = database.Database.CreateContainerIfNotExistsAsync("Orders", "/id").Result;
     }

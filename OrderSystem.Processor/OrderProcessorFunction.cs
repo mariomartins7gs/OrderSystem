@@ -17,7 +17,14 @@ public class OrderProcessorFunction
         _logger = logger;
 
         var cosmosConn = Environment.GetEnvironmentVariable("Cosmos__ConnectionString");
-        var cosmosClient = new CosmosClient(cosmosConn);
+        var cosmosOptions = new CosmosClientOptions()
+        {
+            SerializerOptions = new CosmosSerializationOptions
+            {
+                PropertyNamingPolicy = CosmosPropertyNamingPolicy.CamelCase
+            }
+        };
+        var cosmosClient = new CosmosClient(cosmosConn, cosmosOptions);
         var database = cosmosClient.CreateDatabaseIfNotExistsAsync("OrderProcessingDb").Result;
         _cosmosContainer = database.Database.CreateContainerIfNotExistsAsync("Orders", "/id").Result;
     }
