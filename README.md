@@ -1,6 +1,9 @@
 # Order Processing System — Azure Serverless Demo
 
-Sistema di gestione ordini completamente serverless su Azure.
+Full-stack serverless order management system built on Azure.  
+**Student:** Mario Martins  
+**Course:** ITS ICT Academy — Cloud & Azure  
+**Status:** ✅ Completed — Live on Azure
 
 ```
 ┌──────────┐     ┌──────────────────┐     ┌──────────────┐     ┌──────────────┐
@@ -15,147 +18,95 @@ Sistema di gestione ordini completamente serverless su Azure.
                   └──────────────┘         └──────────────┘    status
 ```
 
-## Resource Group
+## Architecture
+
+5 Azure services, one pipeline:
+
+| # | Service | Role | Name |
+|---|---------|------|------|
+| 1 | **App Service** | Web API (ASP.NET Core 8) | `app-orderprocessing-api` |
+| 2 | **Service Bus** | Messaging queue | `sb-orderprocessing-001` |
+| 3 | **Event Grid** | Event notification | `evgt-orderprocessing-001` |
+| 4 | **Cosmos DB** | NoSQL database | `cosmos-orderprocessing-001` |
+| 5 | **Azure Functions** | Background processing | `func-orderprocessing-001` |
+
+## Data Flow
+
 ```
-rg-orderprocessing-001
+1. Client → POST /api/orders → API Controller
+2. API saves order to Cosmos DB (OrderProcessingDb → Orders)
+3. API sends message to Service Bus Queue (orders-queue)
+4. API publishes event to Event Grid (OrderCreated)
+5. Function (queue trigger) processes order in background
+6. Client → GET /api/orders → reads from Cosmos DB
 ```
 
-## Naming Convention
-Tutte le risorse seguono: `{tipo}-orderprocessing-{suffisso}`
+## GitHub
 
-| Risorsa Azure | Nome | Tier |
-|---------------|------|------|
-| **Cosmos DB** | `cosmos-orderprocessing-001` | Serverless + Free Tier |
-| **Service Bus** | `sb-orderprocessing-001` | Standard |
-| **Event Grid Topic** | `evgt-orderprocessing-001` | Standard |
-| **App Service (API)** | `app-orderprocessing-api` | Free F1 |
-| **Function App** | `func-orderprocessing-001` | Consumption |
-| **Cosmos Database** | `OrderProcessingDb` | auto-creato |
-| **Cosmos Container** | `Orders` | auto-creato |
-| **Service Bus Queue** | `orders-queue` | creata manualmente |
+- **Repo:** [github.com/mariomartins7gs/OrderSystem](https://github.com/mariomartins7gs/OrderSystem)
+- **CI/CD:** GitHub Actions → auto-deploy on push to `main`
+- **Branches:** `main` (production)
 
-## Flusso di elaborazione
+## Project Structure
 
-1. **POST** `/api/orders` → API riceve richiesta
-2. **Salva** su Cosmos DB (`OrderProcessingDb` / `Orders`)
-3. **Invia** messaggio a Service Bus (`orders-queue`)
-4. **Pubblica** evento su Event Grid
-5. **Function** processa in background (aggiorna status)
-6. **GET** `/api/orders` → elenco completo
+```
+OrderSystem.sln
+├── OrderSystem.Api/               ← ASP.NET Core Web API
+│   ├── Controllers/OrdersController.cs
+│   ├── Program.cs
+│   └── appsettings.json
+├── OrderSystem.Common/            ← Shared models
+│   └── Models/Order.cs, Messages.cs
+├── OrderSystem.Processor/         ← Azure Function
+│   └── OrderProcessorFunction.cs
+├── .github/workflows/             ← CI/CD pipeline
+└── README.md
+```
 
-## Progetti (.NET 8)
+## Live Endpoints
 
-| Progetto | Tipo | Descrizione |
-|----------|------|-------------|
-| `OrderSystem.Api` | Web API | CRUD ordini + Service Bus + Event Grid |
-| `OrderSystem.Processor` | Azure Function (isolated) | Queue trigger: processa ordini |
-| `OrderSystem.Common` | Class Library | Modelli condivisi (Order, enums, DTOs) |
-
-## API Endpoints
-
-| Metodo | Endpoint | Descrizione |
+| Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/orders` | Crea ordine → salva Cosmos + SB + EG |
-| `GET` | `/api/orders` | Elenco ordini (dal più recente) |
-| `GET` | `/api/orders/{id}` | Dettaglio ordine per ID |
+| `POST` | `https://app-orderprocessing-api-[...].azurewebsites.net/api/orders` | Create order |
+| `GET` | `https://app-orderprocessing-api-[...].azurewebsites.net/api/orders` | List orders |
+| `GET` | `https://app-orderprocessing-api-[...].azurewebsites.net/api/orders/{id}` | Get order by ID |
 
-## Configurazione locale
+## Testing
 
+### Local
 ```bash
-# 1. Crea appsettings.Development.json (gitignorato)
-cat > OrderSystem.Api/appsettings.Development.json << 'EOF'
-{
-  "ServiceBus": { "ConnectionString": "..." },
-  "EventGrid": { "Endpoint": "...", "Key": "..." },
-  "Cosmos": { "ConnectionString": "..." }
-}
-EOF
-
-# 2. Esegui in Development mode
 dotnet run --project OrderSystem.Api
-
-# 3. Apri Swagger
-open http://localhost:5000/swagger
+# Swagger → http://localhost:5000/swagger
 ```
 
-## Lessons Learned — Per un'implementazione smooth
-
-### ❌ Da evitare assolutamente
-
-1. **Connection string in `appsettings.json`**
-   - GitHub Secret Scanning blocca il push se vede chiavi/token
-   - ✅ Soluzione: usare `appsettings.Development.json` (già in `.gitignore`) o Azure App Settings
-
-2. **`C:\file\` paths su Windows**
-   - Richiedono privilegi admin → `System.UnauthorizedAccessException`
-   - ✅ Soluzione: `Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)`
-
-3. **Cosmos DB `id` property**
-   - Cosmos richiede `id` (lowercase) su ogni documento
-   - ✅ Soluzione: configurare `CosmosClientOptions` con `PropertyNamingPolicy = CosmosPropertyNamingPolicy.CamelCase`
-
-4. **Placeholder config + `git pull`**
-   - Se fai pull, sovrascrive le tue connection string locali
-   - ✅ Soluzione: file separati gitignorati o usare Azure App Settings
-
-5. **Testare il codice prima di creare le risorse**
-   - Perdi tempo a debuggare errori di connessione
-   - ✅ Soluzione: crea le risorse Azure SUBITO, poi testa
-
-### ✅ Best practices
-
-1. **SDK Cosmos singleton** → usare Dependency Injection, non creare nel costruttore
-2. **Auto-create DB/Container** → `CreateDatabaseIfNotExistsAsync` + `CreateContainerIfNotExistsAsync`
-3. **Config via Azure App Settings** → meglio che file locali per deploy
-4. **SSH key per GitHub** → più sicuro del token (push senza password)
-5. **Swagger in dev** → `--environment Development` o rimuovi il check Environment.IsDevelopment
-
-### 👣 Step-by-step per un progetto nuovo
-
-| Step | Cosa fare | Tempo |
-|------|-----------|-------|
-| 1 | Creare Resource Group su Azure | 2 min |
-| 2 | Creare Cosmos DB + Service Bus + Event Grid + App Service + Function | 15 min |
-| 3 | Copiare tutte le connection string in un file locale `.gitignore` | 5 min |
-| 4 | Scrivere il codice C# | 30-60 min |
-| 5 | Testare in locale con `dotnet run --environment Development` | 5 min |
-| 6 | Pushare su GitHub (senza secret) | 2 min |
-| 7 | Deploy su Azure via VS Publish | 10 min |
-| 8 | Test finale su Azure | 5 min |
-
-## Deploy su Azure
-
-### API (App Service)
+### Azure (live)
 ```bash
-# Da VS Code / Terminal
-dotnet publish OrderSystem.Api -c Release -o ./publish/api
+curl -X POST "https://app-orderprocessing-api-[...].azurewebsites.net/api/orders" \
+  -H "Content-Type: application/json" \
+  -d '{"customerName":"Test","product":"Laptop","quantity":1,"price":999.99}'
 ```
 
-Poi su Azure Portal:
-- `app-orderprocessing-api` → **Deployment Center** → collega GitHub
-- Oppure **Deploy via ZIP** da VS → Publish
+## Lessons Learned
 
-### Function App
-```bash
-dotnet publish OrderSystem.Processor -c Release -o ./publish/processor
+### ❌ Avoid
+1. **Secrets in repo** — GitHub Secret Scanning blocks pushes. Use `appsettings.Development.json` (gitignored) or Azure App Settings
+2. **Hardcoded paths** (`C:\file\`) — need admin. Use `Environment.SpecialFolder.MyDocuments`
+3. **Cosmos id field** — Cosmos requires lowercase `id`. Configure `CosmosPropertyNamingPolicy.CamelCase`
+4. **Swagger locked in Dev** — remove `if (env.IsDevelopment())` or set env variable
+5. **Testing before resources** — create Azure resources first, then code
+
+### ✅ Best Practices
+1. **CI/CD from day 1** — GitHub Actions auto-deploys on push
+2. **Auto-create Cosmos** — `CreateDatabaseIfNotExistsAsync` + `CreateContainerIfNotExistsAsync`
+3. **Env vars over files** — Configure connection strings in Azure App Settings
+4. **SSH key for GitHub** — more secure than tokens
+5. **Separate config files** — `appsettings.json` (template) vs `appsettings.Development.json` (real secrets, gitignored)
+
+## Deploy
+
+Push to `main` → GitHub Actions builds + deploys automatically:
 ```
-
-### Config Environment Variables
-Su Azure Portal → App Service / Function App → **Settings → Environment variables**:
+git add -A
+git commit -m "Your message"
+git push
 ```
-ServiceBus__ConnectionString  =  <value>
-EventGrid__Endpoint           =  <value>
-EventGrid__Key                =  <value>
-Cosmos__ConnectionString      =  <value>
-```
-
-## Test su Azure
-
-Dopo il deploy:
-```
-https://app-orderprocessing-api.azurewebsites.net/swagger
-```
-
-## Licenza
-
-Progetto didattico — ITS ICT Academy
