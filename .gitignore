@@ -1,0 +1,11 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.vs/
+.DS_Store
+
+## Azure
+local.settings.json
+appsettings.Development.json
