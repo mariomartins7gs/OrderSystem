@@ -14,18 +14,24 @@ public class OrdersController : ControllerBase
     private readonly EventGridPublisherClient _egClient;
     private readonly Container _cosmosContainer;
 
+    private readonly IConfiguration _config;
+
     public OrdersController(IConfiguration config)
     {
+        _config = config;
+
         // Service Bus
-        _sbClient = new ServiceBusClient(config["ServiceBus:ConnectionString"]);
+        var sbConn = config["ServiceBus:ConnectionString"] ?? throw new InvalidOperationException("ServiceBus:ConnectionString mancante");
+        _sbClient = new ServiceBusClient(sbConn);
 
         // Event Grid
-        _egClient = new EventGridPublisherClient(
-            new Uri(config["EventGrid:Endpoint"]),
-            new Azure.AzureKeyCredential(config["EventGrid:Key"]));
+        var egEndpoint = config["EventGrid:Endpoint"] ?? throw new InvalidOperationException("EventGrid:Endpoint mancante");
+        var egKey = config["EventGrid:Key"] ?? throw new InvalidOperationException("EventGrid:Key mancante");
+        _egClient = new EventGridPublisherClient(new Uri(egEndpoint), new Azure.AzureKeyCredential(egKey));
 
         // Cosmos DB
-        var cosmosClient = new CosmosClient(config["Cosmos:ConnectionString"]);
+        var cosmosConn = config["Cosmos:ConnectionString"] ?? throw new InvalidOperationException("Cosmos:ConnectionString mancante");
+        var cosmosClient = new CosmosClient(cosmosConn);
         _cosmosContainer = cosmosClient.GetContainer("OrderDb", "Orders");
     }
 
