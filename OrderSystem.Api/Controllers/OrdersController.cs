@@ -29,10 +29,11 @@ public class OrdersController : ControllerBase
         var egKey = config["EventGrid:Key"] ?? throw new InvalidOperationException("EventGrid:Key mancante");
         _egClient = new EventGridPublisherClient(new Uri(egEndpoint), new Azure.AzureKeyCredential(egKey));
 
-        // Cosmos DB
+        // Cosmos DB (auto-create database e container se non esistono)
         var cosmosConn = config["Cosmos:ConnectionString"] ?? throw new InvalidOperationException("Cosmos:ConnectionString mancante");
         var cosmosClient = new CosmosClient(cosmosConn);
-        _cosmosContainer = cosmosClient.GetContainer("OrderProcessingDb", "Orders");
+        var database = cosmosClient.CreateDatabaseIfNotExistsAsync("OrderProcessingDb").Result;
+        _cosmosContainer = database.Database.CreateContainerIfNotExistsAsync("Orders", "/id").Result;
     }
 
     // POST api/orders
