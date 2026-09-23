@@ -1,9 +1,9 @@
-# Order Processing System — Azure Serverless Demo
+﻿# Order Processing System — Azure Serverless Demo
 
 Full-stack serverless order management system built on Azure.  
 **Student:** Mario Martins  
 **Course:** ITS ICT Academy — Cloud & Azure  
-**Status:** ✅ Completed — Live on Azure
+**Status:** ✅ Completed — Code + CI/CD preserved, demo archived (run locally)
 
 ```
 ┌──────────┐     ┌──────────────────┐     ┌──────────────┐     ┌──────────────┐
@@ -63,25 +63,18 @@ OrderSystem.sln
 └── README.md
 ```
 
-## Live Endpoints
+## Demo
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `https://app-orderprocessing-api-[...].azurewebsites.net/api/orders` | Create order |
-| `GET` | `https://app-orderprocessing-api-[...].azurewebsites.net/api/orders` | List orders |
-| `GET` | `https://app-orderprocessing-api-[...].azurewebsites.net/api/orders/{id}` | Get order by ID |
+> Live demo archived after course — full code + CI/CD preserved.
+> Run locally for interview demo:
 
-## Testing
-
-### Local
 ```bash
 dotnet run --project OrderSystem.Api
 # Swagger → http://localhost:5000/swagger
 ```
 
-### Azure (live)
 ```bash
-curl -X POST "https://app-orderprocessing-api-[...].azurewebsites.net/api/orders" \
+curl -X POST "http://localhost:5000/api/orders" \
   -H "Content-Type: application/json" \
   -d '{"customerName":"Test","product":"Laptop","quantity":1,"price":999.99}'
 ```
@@ -110,3 +103,4 @@ git add -A
 git commit -m "Your message"
 git push
 ```
+
