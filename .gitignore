@@ -10,3 +10,6 @@ obj/
 local.settings.json
 appsettings.Development.json
 publish/
+
+# artifacts
+test-report.html
