@@ -30,7 +30,7 @@ flowchart LR
     Function -->|Processing → Completed| Cosmos
     API -->|OrderCreated notification| Grid[Azure Event Grid]
     Grid --> Subscribers[Optional event subscribers]
-    Client -->|GET /api/orders/{id}| API
+    Client -->|GET /api/orders/:id| API
 ```
 
 The request path and background path are intentionally separate:
