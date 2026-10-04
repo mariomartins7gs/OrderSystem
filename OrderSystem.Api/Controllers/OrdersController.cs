@@ -14,23 +14,19 @@ public class OrdersController : ControllerBase
     private readonly EventGridPublisherClient _egClient;
     private readonly Container _cosmosContainer;
 
-    private readonly IConfiguration _config;
-
     public OrdersController(IConfiguration config)
     {
-        _config = config;
-
         // Service Bus
-        var sbConn = config["ServiceBus:ConnectionString"] ?? throw new InvalidOperationException("ServiceBus:ConnectionString mancante");
+        var sbConn = config["ServiceBus:ConnectionString"] ?? throw new InvalidOperationException("ServiceBus:ConnectionString is missing.");
         _sbClient = new ServiceBusClient(sbConn);
 
         // Event Grid
-        var egEndpoint = config["EventGrid:Endpoint"] ?? throw new InvalidOperationException("EventGrid:Endpoint mancante");
-        var egKey = config["EventGrid:Key"] ?? throw new InvalidOperationException("EventGrid:Key mancante");
+        var egEndpoint = config["EventGrid:Endpoint"] ?? throw new InvalidOperationException("EventGrid:Endpoint is missing.");
+        var egKey = config["EventGrid:Key"] ?? throw new InvalidOperationException("EventGrid:Key is missing.");
         _egClient = new EventGridPublisherClient(new Uri(egEndpoint), new Azure.AzureKeyCredential(egKey));
 
-        // Cosmos DB (auto-create database e container se non esistono)
-        var cosmosConn = config["Cosmos:ConnectionString"] ?? throw new InvalidOperationException("Cosmos:ConnectionString mancante");
+        // Cosmos DB (create the database and container when they do not exist).
+        var cosmosConn = config["Cosmos:ConnectionString"] ?? throw new InvalidOperationException("Cosmos:ConnectionString is missing.");
         var cosmosOptions = new CosmosClientOptions()
         {
             SerializerOptions = new CosmosSerializationOptions
@@ -47,7 +43,7 @@ public class OrdersController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> CreateOrder([FromBody] CreateOrderRequest request)
     {
-        // 1. Crea l'ordine
+        // 1. Create the order.
         var order = new Order
         {
             CustomerName = request.CustomerName,
@@ -57,15 +53,15 @@ public class OrdersController : ControllerBase
             Status = OrderStatus.Created
         };
 
-        // 2. Salva su Cosmos DB
+        // 2. Save it to Cosmos DB.
         await _cosmosContainer.CreateItemAsync(order, new PartitionKey(order.Id));
 
-        // 3. Invia messaggio a Service Bus Queue
-        var sender = _sbClient.CreateSender("orders-queue");
+        // 3. Send a message to the Service Bus queue.
+        await using var sender = _sbClient.CreateSender("orders-queue");
         var messageBody = BinaryData.FromObjectAsJson(order);
         await sender.SendMessageAsync(new ServiceBusMessage(messageBody));
 
-        // 4. Pubblica evento su Event Grid
+        // 4. Publish an Event Grid notification for other subscribers.
         var eventData = new OrderCreatedEvent
         {
             OrderId = order.Id,
@@ -79,7 +75,12 @@ public class OrdersController : ControllerBase
             BinaryData.FromObjectAsJson(eventData));
         await _egClient.SendEventAsync(egEvent);
 
-        return Ok(new { order.Id, order.Status, Message = "Ordine creato con successo!" });
+        return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, new
+        {
+            order.Id,
+            order.Status,
+            Message = "Order created successfully."
+        });
     }
 
     // GET api/orders/{id}
@@ -93,7 +94,7 @@ public class OrdersController : ControllerBase
         }
         catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
-            return NotFound(new { Message = "Ordine non trovato" });
+            return NotFound(new { Message = "Order not found." });
         }
     }
 

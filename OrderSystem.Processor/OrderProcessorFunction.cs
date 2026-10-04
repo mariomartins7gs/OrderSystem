@@ -2,7 +2,6 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using OrderSystem.Common.Models;
 using Azure.Messaging.ServiceBus;
-using Azure.Messaging.EventGrid;
 using Microsoft.Azure.Cosmos;
 
 namespace OrderSystem.Processor;
@@ -34,24 +33,24 @@ public class OrderProcessorFunction
         [ServiceBusTrigger("orders-queue", Connection = "ServiceBus__ConnectionString")]
         ServiceBusReceivedMessage message)
     {
-        _logger.LogInformation("📨 Ricevuto ordine da Service Bus");
+        _logger.LogInformation("Received order message from Service Bus.");
 
-        var order = message.Body.ToObjectFromJson<Order>();
+        var order = message.Body.ToObjectFromJson<Order>()
+            ?? throw new InvalidOperationException("The Service Bus message did not contain a valid order.");
 
-        // Aggiorna status a "Processing"
+        // Move the order through the background-processing states.
         order.Status = OrderStatus.Processing;
         await _cosmosContainer.UpsertItemAsync(order, new PartitionKey(order.Id));
 
-        _logger.LogInformation("✅ Ordine {OrderId} in elaborazione...", order.Id);
+        _logger.LogInformation("Order {OrderId} is being processed.", order.Id);
 
-        // Simula elaborazione (es. validazione, calcolo)
+        // Simulate work such as validation or calculation.
         await Task.Delay(500);
 
-        // Completa
         order.Status = OrderStatus.Completed;
         await _cosmosContainer.UpsertItemAsync(order, new PartitionKey(order.Id));
 
-        _logger.LogInformation("🎉 Ordine {OrderId} completato! Cliente: {Customer}, Totale: {Total:C}",
+        _logger.LogInformation("Order {OrderId} completed. Customer: {Customer}; total: {Total:C}.",
             order.Id, order.CustomerName, order.Total);
     }
 }

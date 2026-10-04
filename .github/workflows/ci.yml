@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 8.x
+
+      - name: Restore dependencies
+        run: dotnet restore OrderSystem.sln
+
+      - name: Restore Function build metadata
+        run: dotnet restore OrderSystem.Processor/OrderSystem.Processor.csproj
+
+      - name: Build solution
+        run: dotnet build OrderSystem.sln --configuration Release --no-restore --nologo
+
+      - name: Run tests
+        run: dotnet test OrderSystem.sln --configuration Release --no-build --nologo --verbosity normal
